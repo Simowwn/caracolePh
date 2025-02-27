@@ -1,0 +1,45 @@
+services:
+  web:
+    container_name: app_caracole_admin
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    command: gunicorn caracole_ph_admin.wsgi:application --bind 0.0.0.0:8000 --timeout 30 # --reload  
+    ports:
+      - 8000:8000
+    env_file:
+      - ./app/.env
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/mediafiles
+      - ./app/:/usr/src/app/
+    expose:
+      - 8000
+    restart: always
+    depends_on:
+      - postgres
+    networks:
+      - iso_network
+  
+  postgres:
+    container_name: db_caracole_admin
+    image: postgres
+    env_file:
+      - ./app/.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    expose:
+      - 5432
+    networks:
+      - iso_network
+
+
+volumes:
+  static_volume:
+  media_volume:
+  postgres_data:
+
+networks:
+  iso_network:
+    driver: bridge
