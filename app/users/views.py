@@ -10,6 +10,7 @@ from django.contrib.auth.hashers import check_password
 from .models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from rest_framework import generics
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
@@ -80,3 +81,10 @@ class LoginView(APIView):
         response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
         response["Access-Control-Allow-Credentials"] = "true"
+
+class UserListView(generics.ListAPIView):
+    queryset = User.objects.all()
+    
+    def get(self, request, *args, **kwargs):
+        users = self.queryset.values('id', 'email', 'first_name', 'last_name', 'is_active', 'is_staff', 'date_joined')
+        return Response(list(users), status=status.HTTP_200_OK)
