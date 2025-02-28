@@ -172,6 +172,3 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 10,  # Default pagination page size
 }
 
-
-
-
