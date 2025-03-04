@@ -117,7 +117,7 @@ SUPERUSER_PASSWORD = env("HARD_CODED_PASSWORD")
 ALLOWED_HASHED_PREFIX = env("ALLOWED_HASHED_PREFIX")
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_HOST = env("EMAIL_HOST", default="timewinder.35@gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="no-reply@dexterton.com")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
