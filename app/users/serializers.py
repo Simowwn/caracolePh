@@ -25,3 +25,26 @@ class EmailAndPasswordSerializer(serializers.Serializer):
             return {"user": user}
         except User.DoesNotExist:
             raise serializers.ValidationError("User does not exist")
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False)
+    
+    class Meta:
+        model = User
+        fields = ['email', 'first_name', 'last_name', 'is_active', 'is_staff', 'password']
+        extra_kwargs = {
+            'email': {'required': False},
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+            'is_active': {'required': False},
+            'is_staff': {'required': False}
+        }
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            if attr == 'password':
+                instance.set_password(value)
+            else:
+                setattr(instance, attr, value)
+        instance.save()
+        return instance

@@ -25,8 +25,8 @@ from users.views import LoginView
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("users.urls"), name="users"),
-
     path('api/login/', LoginView.as_view(), name='login'),
+    path('api/invitations/', include('user_invitations.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(
