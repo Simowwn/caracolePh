@@ -9,6 +9,7 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     DJANGO_READ_DOT_ENV_FILE=(bool, True),
     ALLOWED_HOSTS=(list, []),
+    FRONTEND_URL=(str, "http://localhost:3000"),  # Default frontend URL
 )
 
 DEBUG = env("DJANGO_DEBUG")
@@ -117,7 +118,7 @@ SUPERUSER_PASSWORD = env("HARD_CODED_PASSWORD")
 ALLOWED_HASHED_PREFIX = env("ALLOWED_HASHED_PREFIX")
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = env("EMAIL_HOST", default="timewinder.35@gmail.com")
+EMAIL_HOST = env("EMAIL_HOST", default="mail.dexterton.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="no-reply@dexterton.com")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
@@ -171,4 +172,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,  # Default pagination page size
 }
+
+# Frontend URL for generating links in emails
+FRONTEND_URL = env("FRONTEND_URL")
 

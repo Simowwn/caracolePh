@@ -5,6 +5,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import UserInvitation
 from .serializers import UserInvitationSerializer
+from rest_framework.views import APIView  
+from .serializers import InvitedRegistrationSerializer
+from django.shortcuts import get_object_or_404
+from rest_framework.permissions import AllowAny
+from rest_framework.generics import RetrieveAPIView 
+
+
 
 class UserInvitationViewSet(viewsets.ModelViewSet):
     queryset = UserInvitation.objects.all()
@@ -41,3 +48,45 @@ class UserInvitationViewSet(viewsets.ModelViewSet):
         invitation.save()
         return Response({"message": "Invitation accepted successfully"})
 # Create your views here.
+
+
+ # Instead of APIView
+
+class InvitedUserRegistrationView(RetrieveAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = InvitedRegistrationSerializer
+
+    def get(self, request, token):
+        invitation = get_object_or_404(UserInvitation, token=token, is_invited=True)
+        user = invitation.user
+
+        if user.is_active:
+            return Response({"error": "User is already active"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(instance=user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+    def post(self, request, token):
+        """Register the user if the token is valid."""
+        invitation = get_object_or_404(UserInvitation, token=token, is_invited=True)
+        user = invitation.user  # Get the associated user
+
+        if user.is_active:
+            return Response({"error": "User is already active"}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+        request.data["token"] = token
+        serializer = InvitedRegistrationSerializer(data=request.data)
+
+        if serializer.is_valid():
+            user.set_password(serializer.validated_data["password"])
+            user.first_name = serializer.validated_data.get("first_name", "")
+            user.last_name = serializer.validated_data.get("last_name", "")
+            user.is_active = True  # ✅ Activate the user upon successful registration
+            user.save()
+
+            return Response({"message": "Registration successful", "user_id": user.id}, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
