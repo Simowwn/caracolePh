@@ -38,7 +38,7 @@ class UserInvitationSerializer(serializers.ModelSerializer):
         return data
 
     def send_invitation_email(self, invitation):
-        invitation_url = f"{settings.FRONTEND_URL}/accept-invitation?token={invitation.token}"
+        invitation_url = f"{settings.FRONTEND_URL}/activation-page?token={invitation.token}"
         message = f"""
 Hello,
 
