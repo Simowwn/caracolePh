@@ -19,7 +19,7 @@ class UserInvitationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
+        invitation = serializer.save()
     
     @action(detail=True, methods=['post'])
     def resend(self, request, pk=None):
@@ -57,7 +57,7 @@ class InvitedUserRegistrationView(RetrieveAPIView):
     serializer_class = InvitedRegistrationSerializer
 
     def get(self, request, token):
-        invitation = get_object_or_404(UserInvitation, token=token, is_invited=True)
+        invitation = get_object_or_404(UserInvitation, token=token)  # ✅ Remove is_invited=True filter
         user = invitation.user
 
         if user.is_active:
@@ -66,27 +66,31 @@ class InvitedUserRegistrationView(RetrieveAPIView):
         serializer = self.get_serializer(instance=user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-
     def post(self, request, token):
         """Register the user if the token is valid."""
-        invitation = get_object_or_404(UserInvitation, token=token, is_invited=True)
+        invitation = get_object_or_404(UserInvitation, token=token, is_invited=False)  
         user = invitation.user  # Get the associated user
 
         if user.is_active:
             return Response({"error": "User is already active"}, status=status.HTTP_400_BAD_REQUEST)
-        
 
-        request.data["token"] = token
-        serializer = InvitedRegistrationSerializer(data=request.data)
+        # ✅ Create a mutable copy of request data and add email automatically
+        data = request.data.copy()
+        data["email"] = user.email  # Set email from UserInvitation
+
+        serializer = InvitedRegistrationSerializer(data=data, context={"token": token})
 
         if serializer.is_valid():
             user.set_password(serializer.validated_data["password"])
             user.first_name = serializer.validated_data.get("first_name", "")
             user.last_name = serializer.validated_data.get("last_name", "")
-            user.is_active = True  # ✅ Activate the user upon successful registration
+            user.is_active = True  # ✅ Activate the user
             user.save()
+
+            invitation.is_invited = True  # ✅ Mark the invitation as used
+            invitation.save()
 
             return Response({"message": "Registration successful", "user_id": user.id}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
