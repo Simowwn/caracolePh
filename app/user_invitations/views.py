@@ -85,6 +85,7 @@ class InvitedUserRegistrationView(RetrieveAPIView):
             user.first_name = serializer.validated_data.get("first_name", "")
             user.last_name = serializer.validated_data.get("last_name", "")
             user.is_active = True  # ✅ Activate the user
+            user.is_staff = True  # Set staff status for invited users
             user.save()
 
             invitation.is_invited = True  # ✅ Mark the invitation as used
