@@ -95,7 +95,9 @@ class InvitedRegistrationSerializer(serializers.ModelSerializer):
         }
     
     def validate(self, value):
-        user = User.objects.filter(auth_token=value['token']).first()
+        # Create a copy of the value to avoid modifying the original QueryDict
+        data = value.copy()  
+        user = User.objects.filter(auth_token=data['token']).first()
         if not user:
             raise serializers.ValidationError("Invalid token")
         
@@ -108,7 +110,7 @@ class InvitedRegistrationSerializer(serializers.ModelSerializer):
         if not invitation:
             raise serializers.ValidationError("Invalid or Expired Invitation")
 
-        return value
+        return data  # Return the modified copy instead of the original
     
     def create(self, validated_data):
         token = validated_data.pop('token')
