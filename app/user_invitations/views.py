@@ -68,11 +68,14 @@ class InvitedUserRegistrationView(RetrieveAPIView):
 
     def post(self, request, token):
         """Register the user if the token is valid."""
-        invitation = get_object_or_404(UserInvitation, token=token, is_invited=False)  
+        invitation = get_object_or_404(UserInvitation, token=token)  
         user = invitation.user  # Get the associated user
 
         if user.is_active:
             return Response({"error": "User is already active"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if invitation.is_invited:
+            return Response({"error": "Invitation already accepted"}, status=status.HTTP_400_BAD_REQUEST)
 
         # ✅ Create a mutable copy of request data and add email automatically
         data = request.data.copy()
@@ -85,13 +88,26 @@ class InvitedUserRegistrationView(RetrieveAPIView):
             user.first_name = serializer.validated_data.get("first_name", "")
             user.last_name = serializer.validated_data.get("last_name", "")
             user.is_active = True  # ✅ Activate the user
-            user.is_staff = True  # Set staff status for invited users
             user.save()
 
             invitation.is_invited = True  # ✅ Mark the invitation as used
             invitation.save()
 
-            return Response({"message": "Registration successful", "user_id": user.id}, status=status.HTTP_201_CREATED)
+            # Return both user and invitation data
+            return Response({
+                "message": "Registration successful",
+                "user_id": user.id,
+                "invitation": {
+                    "id": invitation.id,
+                    "is_invited": invitation.is_invited,
+                    "expires_at": invitation.expires_at,
+                    "created_at": invitation.created_at,
+                    "token": invitation.token,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name
+                }
+            }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

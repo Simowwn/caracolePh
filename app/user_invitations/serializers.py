@@ -22,8 +22,8 @@ class UserInvitationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         email = validated_data.pop("email")  # ✅ Extract email
-        first_name = validated_data.pop("first_name", "")  # ✅ Extract first_name
-        last_name = validated_data.pop("last_name", "")  # ✅ Extract last_name
+        first_name = validated_data.pop("first_name", "")  
+        last_name = validated_data.pop("last_name", "")  
 
         # Get or create the user
         user, created = User.objects.get_or_create(email=email, defaults={"is_active": False, "is_staff": True})
@@ -34,17 +34,15 @@ class UserInvitationSerializer(serializers.ModelSerializer):
             user.last_name = last_name
             user.save()
 
-        # Create UserInvitation
+        # Create UserInvitation WITHOUT setting `is_invited=True`
         invitation = UserInvitation.objects.create(user=user, **validated_data)
 
-        # ✅ Explicitly set is_invited and save it
-        invitation.is_invited = True
-        invitation.save(update_fields=["is_invited"])
 
         # Send invitation email
         self.send_invitation_email(invitation)
 
         return invitation
+
 
 
 
@@ -113,15 +111,20 @@ class InvitedRegistrationSerializer(serializers.ModelSerializer):
         if not token:
             raise serializers.ValidationError("Missing invitation token.")
 
-        invitation = UserInvitation.objects.filter(token=token, is_invited=False).first()
+        # Remove is_invited=False filter to allow any valid token
+        invitation = UserInvitation.objects.filter(token=token).first()
 
         if not invitation:
-            raise serializers.ValidationError("Invalid or expired invitation.")
+            raise serializers.ValidationError("Invalid invitation.")
 
         if invitation.is_expired():
             raise serializers.ValidationError("This invitation has expired.")
 
-        data["user"] = invitation.user  # Attach the user
+        # Check if user is already active
+        if invitation.user.is_active:
+            raise serializers.ValidationError("User is already active.")
+
+        data["user"] = invitation.user
         return data
 
 
