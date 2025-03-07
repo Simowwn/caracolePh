@@ -8,6 +8,8 @@ User = get_user_model()
  
 class UserInvitationSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(write_only=True)  # ✅ Accepts input
+    first_name = serializers.CharField(write_only=True)
+    last_name = serializers.CharField(write_only=True)
 
     is_invited = serializers.BooleanField(read_only=True)
     expires_at = serializers.DateTimeField(read_only=True)
@@ -15,15 +17,23 @@ class UserInvitationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserInvitation
-        fields = ['id', 'email', 'is_invited', 'expires_at', 'created_at', 'token']
+        fields = ['id', 'email', 'first_name', 'last_name', 'is_invited', 'expires_at', 'created_at', 'token']
 
     def create(self, validated_data):
-        email = validated_data.pop("email")  # ✅ Extract before creating UserInvitation
+        email = validated_data.pop("email")  
+        first_name = validated_data.pop("first_name", "")  
+        last_name = validated_data.pop("last_name", "")  
 
         # Get or create the user
         user, created = User.objects.get_or_create(email=email, defaults={"is_active": False})
 
-        # Create UserInvitation with the user instance
+        # Update first_name and last_name if user is newly created
+        if created or not user.first_name or not user.last_name:
+            user.first_name = first_name
+            user.last_name = last_name
+            user.save()
+
+        # Remove first_name and last_name from validated_data (UserInvitation model doesn't need them)
         invitation = UserInvitation.objects.create(user=user, **validated_data)
 
         # Send invitation email
@@ -32,9 +42,11 @@ class UserInvitationSerializer(serializers.ModelSerializer):
         return invitation
 
     def to_representation(self, instance):
-        """ Ensure email is included in the response from the User model """
+        """ Ensure email, first_name, and last_name are included in the response from the User model """
         data = super().to_representation(instance)
         data["email"] = instance.user.email  # ✅ Fetch email from the related User
+        data["first_name"] = instance.user.first_name  # ✅ Fetch first_name from User
+        data["last_name"] = instance.user.last_name  # ✅ Fetch last_name from User
         return data
 
     def send_invitation_email(self, invitation):
@@ -67,12 +79,14 @@ class InvitedRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['email', 'password', 'first_name', 'last_name']
+        fields = ['email', 'first_name', 'last_name']
 
     def to_representation(self, instance):
-        """ Ensure email is included in the form """
+        """ Ensure email, first_name, and last_name are included in the response """
         data = super().to_representation(instance)
-        data["email"] = instance.email  # ✅ Manually add email to response
+        data["email"] = instance.email  # ✅ Ensure email is always in response
+        data["first_name"] = instance.first_name  # ✅ Ensure first_name is always in response
+        data["last_name"] = instance.last_name  # ✅ Ensure last_name is always in response
         return data
     
     def validate(self, value):
