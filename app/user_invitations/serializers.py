@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from .models import UserInvitation
 from django.core.mail import send_mail
 from django.conf import settings
+from urllib.parse import urlencode
  
 User = get_user_model()
  
@@ -20,29 +21,38 @@ class UserInvitationSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'first_name', 'last_name', 'is_invited', 'expires_at', 'created_at', 'token']
 
     def create(self, validated_data):
-        email = validated_data.pop("email")  
-        first_name = validated_data.pop("first_name", "")  
-        last_name = validated_data.pop("last_name", "")  
+        email = validated_data.pop("email")  # ✅ Extract email
+        first_name = validated_data.pop("first_name", "")  # ✅ Extract first_name
+        last_name = validated_data.pop("last_name", "")  # ✅ Extract last_name
 
         # Get or create the user
-        user, created = User.objects.get_or_create(email=email, defaults={"is_active": False})
+        user, created = User.objects.get_or_create(email=email, defaults={"is_active": False, "is_staff": True})
 
-        # Update first_name and last_name if user is newly created
-        if created or not user.first_name or not user.last_name:
+        # If the user was newly created, set first_name and last_name
+        if created:
             user.first_name = first_name
             user.last_name = last_name
             user.save()
 
-        # Remove first_name and last_name from validated_data (UserInvitation model doesn't need them)
+        # Create UserInvitation
         invitation = UserInvitation.objects.create(user=user, **validated_data)
+
+        # ✅ Explicitly set is_invited and save it
+        invitation.is_invited = True
+        invitation.save(update_fields=["is_invited"])
 
         # Send invitation email
         self.send_invitation_email(invitation)
 
         return invitation
 
+
+
     def to_representation(self, instance):
         """ Ensure email, first_name, and last_name are included in the response from the User model """
+        # Refresh the instance from the database to get the latest state
+        instance.refresh_from_db()
+        
         data = super().to_representation(instance)
         data["email"] = instance.user.email  # ✅ Fetch email from the related User
         data["first_name"] = instance.user.first_name  # ✅ Fetch first_name from User
@@ -50,9 +60,15 @@ class UserInvitationSerializer(serializers.ModelSerializer):
         return data
 
     def send_invitation_email(self, invitation):
-        invitation_url = f"{settings.FRONTEND_URL}/activation-page?token={invitation.token}"
+        params={
+            "token": invitation.token,
+            "first_name": invitation.user.first_name,
+            "last_name": invitation.user.last_name,
+            "email": invitation.user.email
+        }
+        invitation_url = f"{settings.FRONTEND_URL}/activation-page/?{urlencode(params)}"
         message = f"""
-Hello,
+Hello {invitation.user.first_name},
 
 You have been invited to join the Caracole PH Admin platform.
 
@@ -76,10 +92,12 @@ The Caracole PH Team
 
 class InvitedRegistrationSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(read_only=True)  # ✅ Keep read_only but also include it in `to_representation`
+    password = serializers.CharField(write_only=True, required=True)  # ✅ ADD THIS
 
     class Meta:
         model = User
-        fields = ['email', 'first_name', 'last_name']
+        fields = ['email', 'first_name', 'last_name', 'password']  # ✅ Include password
+
 
     def to_representation(self, instance):
         """ Ensure email, first_name, and last_name are included in the response """
@@ -89,8 +107,8 @@ class InvitedRegistrationSerializer(serializers.ModelSerializer):
         data["last_name"] = instance.last_name  # ✅ Ensure last_name is always in response
         return data
     
-    def validate(self, value):
-        token = self.context.get("token")  # Get token from context instead of request data
+    def validate(self, data):
+        token = self.context.get("token")
 
         if not token:
             raise serializers.ValidationError("Missing invitation token.")
@@ -103,16 +121,14 @@ class InvitedRegistrationSerializer(serializers.ModelSerializer):
         if invitation.is_expired():
             raise serializers.ValidationError("This invitation has expired.")
 
-        value["user"] = invitation.user  # Attach the user to validated data
-        return value
+        data["user"] = invitation.user  # Attach the user
+        return data
 
 
 
-
-    
     def create(self, validated_data):
-        token = validated_data.pop("token")
-        invitation = UserInvitation.objects.filter(token=token, is_invited=True).first()
+        token = self.context.get("token")
+        invitation = UserInvitation.objects.filter(token=token, is_invited=False).first()
 
         if not invitation:
             raise serializers.ValidationError("Invalid or expired invitation.")
@@ -122,10 +138,11 @@ class InvitedRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(validated_data["password"])
         user.first_name = validated_data.get("first_name", "")
         user.last_name = validated_data.get("last_name", "")
-        user.is_active = True  # ✅ Activate user upon registration
+        user.is_active = True  # ✅ Activate user
         user.save()
 
-        invitation.delete()  # ✅ Remove invitation after successful registration
+
 
         return user
+
 

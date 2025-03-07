@@ -52,8 +52,10 @@ class LoginView(APIView):
                     "user_id": existing_user.id,
                     "first_name": existing_user.first_name,
                     "last_name": existing_user.last_name,
+                    "is_superuser": existing_user.is_superuser,
                     "refresh_token": str(refresh),
                     "access_token": str(refresh.access_token),
+                    
                 },
                 status=status.HTTP_200_OK,
             )
